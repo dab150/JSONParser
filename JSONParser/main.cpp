@@ -11,16 +11,67 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <string>
 
 using namespace std;
 
-class jsonDoc
+class jsonValue : public string
+{
+public:
+	jsonValue() = default;
+	~jsonValue() {};
+	string value;
+	string type = "default";
+};
+
+class jsonArray : public jsonValue
+{
+public:
+	jsonArray() = default;
+	~jsonArray() = default;
+	vector<jsonValue> items;
+	string type = "array";
+	int size = 0;
+private:
+
+};
+
+class jsonObject : public jsonValue
+{
+public:
+	jsonObject() = default;
+	~jsonObject() = default;
+	vector<jsonValue> items;
+	int size = 0;
+	string type = "object";
+private:
+
+};
+
+class jsonNumber : public jsonValue
+{
+
+};
+
+class jsonNull : public jsonValue
+{
+public:
+	jsonNull() = default;
+	~jsonNull() = default;
+	string type = "null";
+};
+
+
+
+class jsonDoc : public jsonValue
 {
 public:
 	~jsonDoc() {};
-	vector<char> document; //the document to be read
-	int size = 0; //size of document;
-	char currentItem;
+	vector<jsonValue> document; //the document to be read, stored as a vector
+	int size = 0; //size of JSON document
+	int objectCount = 0;
+	int arrayCount = 0;
+	int index = 0;
 
 	void readFile(string inputString)
 	{
@@ -30,191 +81,174 @@ public:
 		while (inputFile >> noskipws >> tempChar)
 		{
 			cout << tempChar;
-			document.push_back(tempChar);
+			jsonValue v;
+			v.value += tempChar;
+			document.push_back(v);
 			size++;
 		}
+		cout << "\n\n\n";
 	}
 
-	void parse(int index)
-	{
-		//check if we are at end of document before doing anything else
-		if (index > size)
-		{
-			cout << "End of Document!\n";
-			return;
-		}
-
+	jsonValue * parse()
+	{	
 		//skip white space
-		if (document[index] == ' ')
+		if (document[index].value == "")
 		{
-			parse(index + 1);
-		}
-
-		if (isdigit(document[index]))
-		{
-			index = parseNumber(index);
+			index++;
+			parse();
 		}
 		else
 		{
-			switch (document[index])
+			if (document[index].value == "{")
+			{
+				return parseObject();
+			}
+			else if (document[index].value == "[")
+			{
+				return parseArray();
+			}
+			else
+			{
+				jsonNull *jNull = new jsonNull();
+				return jNull;
+			}
+			/*switch (*F)
 			{
 			case '{':
-			case '}':
+			//case '}':
 				//parse object
-				cout << "Found an Object!\n";
-				index = parseObject(index);
+				//cout << "Found an Object!\n";
+				//return parseObject(*F);
 				break;
 			case '[':
-			case ']':
+			//case ']':
 				//parse array
-				cout << "Found an Array!\n";
-				index = parseArray(index);
+				//jsonArray * jArray;
+				return parseArray(F, L);
 				break;
 			case '"':
 				//parse string
-				cout << "Found a String!\n";
-				index = parseString(index);
+				//cout << "Found a String!\n";
+				//parseString(*F);
 				break;
 			case ':':
 				//parse pair
-				cout << "Found a key value pair!\n";
-				parse(index + 1);
+				//cout << "Found a key value pair!\n";
+				//parse(F, L);
 				break;
 			case 'T':
 				//parse true
-				cout << "Found True\n";
-				parse(index + 1);
+				//cout << "Found True\n";
+				//parse(F, L);
 				break;
 			case 'F':
 				//parse false
-				cout << "Found False\n";
-				parse(index + 1);
+				//cout << "Found False\n";
+				//parse(F, L);
 				break;
 			case 'N':
 				//parse null
-				cout << "Found Null\n";
-				parse(index + 1);
+				//cout << "Found Null\n";
+				//parse(F, L);
 				break;
 			case '\n':
-				cout << "Found New Line\n";
-				parse(index + 1);
+				//cout << "Found New Line\n";
+				//parse(F, L);
 				break;
 			default:
+				jsonNull * jNull;
+				return jNull;
 				break;
-			}
+			}*/
 		}
-
-		parse(index + 1);
 	};
 
 private:
-	int getDocumentSize()
+	jsonObject * parseObject()
 	{
-		return document.size();
+		if (document[index].value == "{")
+		{
+			cout << "Found Beginning of an Object!\n";
+			++index;
+		}
+
+		jsonObject * currentObjectArray = new jsonObject;
+
+		while (index < size) //parseObject until we find the end of an array
+		{
+			if (document[index].value == "}")
+			{
+				//end of array
+				cout << "Found End of Object!\n";
+				++index;
+				++objectCount;
+
+				if (index == size)
+				{
+					cout << "Reached End of Document!";
+				}
+				return currentObjectArray;
+			}
+			else
+			{
+				jsonValue * value = new jsonValue;
+				//add each item to the object array
+				//this is where I need to parse other things that could be in the object (string, array, etc.)
+				//thus I'll just call the main parse function
+				//the main parse function will return a value to be added to this object array
+				value = parse();
+				currentObjectArray->items.push_back(*value); //this will push the array, string, etc. into the object array. Thus making currentObjectArray a composite object
+				/*if(value->type == "null")
+					cout << "Pushed a null object into the Object Array!\n";
+				else if (value->type == "array")
+					cout << "Pushed an array into the Object Array!\n";
+				else if (value->type == "object")
+					cout << "Pushed an object into the Object Array!\n";
+				else
+					cout << "Something was pushed into the Object Array!\n";*/
+				currentObjectArray->size++;
+				++index;
+				delete value;
+			}
+		}
+		delete currentObjectArray;
 	}
 
-	int parseNumber(int index)
+	jsonArray * parseArray()
 	{
-		if (index > size)
+		if (document[index].value == "[")
 		{
-			return index;
+			++index;
+			cout << "Found Beginning of an Array!\n";
 		}
-		if (document[index] == ' ' || document[index] == ',')
-		{
-			cout << "Found the end of a number\n";
-			return index + 1;
-		}
-		else if(isdigit(document[index]))
-		{
-			cout << document[index];
-			parseNumber(index + 1);
-		}
-		else
-		{
-			cout << "Unexpected value when parsing a number\n";
-			return index + 1;
-		}
-	}
 
-	int parseObject(int index)
-	{
-		if (index > size)
-		{
-			return index;
-		}
-		if (document[index] == '}')
-		{
-			cout << "Found the end of an object!\n";
-			return index + 1;
-		}
-		else
-		{
-			cout << document[index];
-			parse(index + 1);
-		}
-	}
+		jsonArray * currentArray = new jsonArray();
 
-	int parseArray(int index)
-	{
-		if (index > size)
+		while (index < size) //parseArray until we find the end of an array
 		{
-			return index;
+			if (document[index].value == "]")
+			{
+				//end of array
+				cout << "Found End of Array!\n";
+				++arrayCount;
+				++index;
+				return currentArray;
+			}
+			else
+			{
+				//add this item to the array object
+				currentArray->items.push_back(document[index]);
+				//cout << "Pushed " << document[index].value << " into an array!\n";
+				currentArray->size++;
+				++index;
+			}
 		}
-		if (document[index] == ']')
-		{
-			cout << "Found the end of an array!\n";
-			return index + 1;
-		}
-		else
-		{
-			cout << document[index];
-			parse(index + 1);
-		}
-	}
 
-	int parseString(int index)
-	{
-		if (index > size)
-		{
-			return index;
-		}
-		if (document[index] == '"')
-		{
-			cout << "Found the end of a string!\n";
-			return index + 1;
-		}
-		else
-		{
-			cout << document[index];
-			parse(index + 1);
-		}
-	}
-};
-
-class jsonArray: public jsonDoc
-{
-public:
-private:
-	void parseArray(char item)
-	{
-		//call main parse
+		delete &currentArray;
 	}
 };
 
-class jsonObject : public jsonDoc
-{
-public:
-private:
-	void parseObject(char item)
-	{
-		//call main parse
-	}
-};
 
-class jsonNumber : public jsonDoc
-{
-	
-};
 
 int main()
 {
@@ -223,8 +257,10 @@ int main()
 		
 	Document.readFile("JSONExample.txt");
 
-	Document.parse(0);
 
+	Document.parse();
+
+	cout << "\n\n\nThere were " << Document.objectCount << " objects and " << Document.arrayCount << " arrays\n";
 
 	cin.get(); //just for testing
 	return 0;
