@@ -12,6 +12,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 using namespace std;
 
@@ -22,6 +23,18 @@ public:
 	~jsonValue() {};
 	string value;
 	string type = "default";
+};
+
+class jsonObject : public jsonValue
+{
+public:
+	jsonObject() = default;
+	~jsonObject() = default;
+	vector<jsonValue> items;
+	int size = 0;
+	string type = "object";
+private:
+
 };
 
 class jsonArray : public jsonValue
@@ -36,14 +49,14 @@ private:
 
 };
 
-class jsonObject : public jsonValue
+class jsonString : public jsonValue
 {
 public:
-	jsonObject() = default;
-	~jsonObject() = default;
+	jsonString() = default;
+	~jsonString() = default;
 	vector<jsonValue> items;
+	string type = "string";
 	int size = 0;
-	string type = "object";
 private:
 
 };
@@ -67,70 +80,41 @@ class jsonDoc : public jsonValue
 {
 public:
 	~jsonDoc() {};
-	vector<jsonValue> document; //the document to be read, stored as a vector
+	vector<jsonValue> values; //the document to be read, stored as a vector
 	int size = 0; //size of JSON document
 	int objectCount = 0;
 	int arrayCount = 0;
+	int numCount = 0;
+	int stringCount = 0;
 	int index = 0;
-
-	void readFile(string inputString)
-	{
-		ifstream inputFile;
-		inputFile.open(inputString);
-		char tempChar;
-		while (inputFile >> noskipws >> tempChar)
-		{
-			cout << tempChar;
-			jsonValue v;
-			v.value += tempChar;
-			document.push_back(v);
-			size++;
-		}
-		cout << "\n\n\n";
-	}
 
 	jsonValue * parse()
 	{	
 		//skip white space
-		if (document[index].value == "")
+		if (values[index].value == "")
 		{
 			index++;
 			parse();
 		}
 		else
 		{
-			if (document[index].value == "{")
-			{
+			if (values[index].value == "{")
 				return parseObject();
-			}
-			else if (document[index].value == "[")
-			{
+
+			else if (values[index].value == "[")
 				return parseArray();
-			}
+
+			else if (values[index].value == "\"")
+				return parseString();
+
 			else
 			{
 				jsonNull *jNull = new jsonNull();
 				return jNull;
 			}
+
 			/*switch (*F)
 			{
-			case '{':
-			//case '}':
-				//parse object
-				//cout << "Found an Object!\n";
-				//return parseObject(*F);
-				break;
-			case '[':
-			//case ']':
-				//parse array
-				//jsonArray * jArray;
-				return parseArray(F, L);
-				break;
-			case '"':
-				//parse string
-				//cout << "Found a String!\n";
-				//parseString(*F);
-				break;
 			case ':':
 				//parse pair
 				//cout << "Found a key value pair!\n";
@@ -166,7 +150,7 @@ public:
 private:
 	jsonObject * parseObject()
 	{
-		if (document[index].value == "{")
+		if (values[index].value == "{")
 		{
 			cout << "Found Beginning of an Object!\n";
 			++index;
@@ -176,7 +160,7 @@ private:
 
 		while (index < size) //parseObject until we find the end of an array
 		{
-			if (document[index].value == "}")
+			if (values[index].value == "}")
 			{
 				//end of array
 				cout << "Found End of Object!\n";
@@ -216,7 +200,7 @@ private:
 
 	jsonArray * parseArray()
 	{
-		if (document[index].value == "[")
+		if (values[index].value == "[")
 		{
 			++index;
 			cout << "Found Beginning of an Array!\n";
@@ -226,7 +210,7 @@ private:
 
 		while (index < size) //parseArray until we find the end of an array
 		{
-			if (document[index].value == "]")
+			if (values[index].value == "]")
 			{
 				//end of array
 				cout << "Found End of Array!\n";
@@ -237,31 +221,78 @@ private:
 			else
 			{
 				//add this item to the array object
-				currentArray->items.push_back(document[index]);
+				currentArray->items.push_back(values[index]);
 				//cout << "Pushed " << document[index].value << " into an array!\n";
 				currentArray->size++;
 				++index;
 			}
 		}
 
-		delete &currentArray;
+		delete currentArray;
+	}
+
+	jsonString * parseString()
+	{
+		//skip the first double quote character
+		++index;
+
+		jsonString * currentStringArray = new jsonString();
+
+		while (index < size) //parseString until we find the end of the string
+		{
+			if (values[index].value == "\"")
+			{
+				//end of string
+				cout << "Found End of String!\n";
+				++stringCount;
+				++index;
+				return currentStringArray;
+			}
+			else
+			{
+				//add this item to the string object
+				currentStringArray->items.push_back(values[index]);
+				currentStringArray->size++;
+				++index;
+			}
+		}
+
+		delete currentStringArray;
 	}
 };
 
 
-
+void readFile(jsonDoc * Document)
+{
+	ifstream inputFile;
+	string inputString = "JSONExample.txt";
+	inputFile.open(inputString);
+	char tempChar;
+	while (inputFile >> noskipws >> tempChar)
+	{
+		cout << tempChar;
+		jsonValue v;
+		v.value += tempChar;
+		Document->values.push_back(v);
+		Document->size++;
+	}
+	cout << "\n\n\n";
+}
 int main()
 {
-	//create JSON document
-	jsonDoc Document;
-		
-	Document.readFile("JSONExample.txt");
+	//Read in and create a JSON document structure
+	jsonDoc * Document = new jsonDoc;
+	readFile(Document);
 
+	//Parse the Document
+	Document->parse();
 
-	Document.parse();
-
-	cout << "\n\n\nThere were " << Document.objectCount << " objects and " << Document.arrayCount << " arrays\n";
+	//Print basic information about the document after parsing
+	cout << "\n\n\n" << Document->objectCount << " Objects\n"
+		<< Document->arrayCount << " Arrays\n"
+		<< Document->stringCount << " Strings\n";
 
 	cin.get(); //just for testing
+
 	return 0;
 }
