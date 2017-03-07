@@ -1,10 +1,10 @@
 /*	
 	JSON Parser
 	Written by Daniel Cironi
-	February 21, 2017
+	March 6, 2017
 
 	Description:
-	This program accepts a JSON Document as input
+	This program accepts a .json file as input
 	and outputs information about the document.
 */
 
@@ -13,6 +13,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -63,6 +65,13 @@ private:
 
 class jsonNumber : public jsonValue
 {
+public:
+	jsonNumber() = default;
+	~jsonNumber() = default;
+	vector<jsonValue> items;
+	string type = "number";
+	int size = 0;
+private:
 
 };
 
@@ -86,6 +95,9 @@ public:
 	int arrayCount = 0;
 	int numCount = 0;
 	int stringCount = 0;
+	int keyValueCount = 0;
+	int falseCount = 0;
+	int trueCount = 0;
 	int index = 0;
 
 	jsonValue * parse()
@@ -107,43 +119,36 @@ public:
 			else if (values[index].value == "\"")
 				return parseString();
 
+			else if (values[index].value == ":")
+			{
+				++index;
+				++keyValueCount;
+				return parse();
+			}
+
+			else if (values[index].value == "T")
+			{
+				++index;
+				++trueCount;
+				return parse();
+			}
+
+			else if (values[index].value == "F")
+			{
+				++index;
+				++falseCount;
+				return parse();
+			}
+
+			else if (isdigit((values[index].value[0])))
+			{
+				return parseNumber();
+			}
 			else
 			{
 				jsonNull *jNull = new jsonNull();
 				return jNull;
 			}
-
-			/*switch (*F)
-			{
-			case ':':
-				//parse pair
-				//cout << "Found a key value pair!\n";
-				//parse(F, L);
-				break;
-			case 'T':
-				//parse true
-				//cout << "Found True\n";
-				//parse(F, L);
-				break;
-			case 'F':
-				//parse false
-				//cout << "Found False\n";
-				//parse(F, L);
-				break;
-			case 'N':
-				//parse null
-				//cout << "Found Null\n";
-				//parse(F, L);
-				break;
-			case '\n':
-				//cout << "Found New Line\n";
-				//parse(F, L);
-				break;
-			default:
-				jsonNull * jNull;
-				return jNull;
-				break;
-			}*/
 		}
 	};
 
@@ -152,7 +157,6 @@ private:
 	{
 		if (values[index].value == "{")
 		{
-			cout << "Found Beginning of an Object!\n";
 			++index;
 		}
 
@@ -163,14 +167,8 @@ private:
 			if (values[index].value == "}")
 			{
 				//end of array
-				cout << "Found End of Object!\n";
 				++index;
 				++objectCount;
-
-				if (index == size)
-				{
-					cout << "Reached End of Document!";
-				}
 				return currentObjectArray;
 			}
 			else
@@ -178,18 +176,10 @@ private:
 				jsonValue * value = new jsonValue;
 				//add each item to the object array
 				//this is where I need to parse other things that could be in the object (string, array, etc.)
-				//thus I'll just call the main parse function
+				//therefore I just call the main parse function
 				//the main parse function will return a value to be added to this object array
 				value = parse();
-				currentObjectArray->items.push_back(*value); //this will push the array, string, etc. into the object array. Thus making currentObjectArray a composite object
-				/*if(value->type == "null")
-					cout << "Pushed a null object into the Object Array!\n";
-				else if (value->type == "array")
-					cout << "Pushed an array into the Object Array!\n";
-				else if (value->type == "object")
-					cout << "Pushed an object into the Object Array!\n";
-				else
-					cout << "Something was pushed into the Object Array!\n";*/
+				currentObjectArray->items.push_back(*value);
 				currentObjectArray->size++;
 				++index;
 				delete value;
@@ -203,7 +193,6 @@ private:
 		if (values[index].value == "[")
 		{
 			++index;
-			cout << "Found Beginning of an Array!\n";
 		}
 
 		jsonArray * currentArray = new jsonArray();
@@ -213,21 +202,22 @@ private:
 			if (values[index].value == "]")
 			{
 				//end of array
-				cout << "Found End of Array!\n";
 				++arrayCount;
-				++index;
 				return currentArray;
 			}
 			else
 			{
 				//add this item to the array object
-				currentArray->items.push_back(values[index]);
-				//cout << "Pushed " << document[index].value << " into an array!\n";
+				//we call parse here again in order to parse what is in the array
+				//for example, this catches an instance of a string in an array
+				jsonValue * value = new jsonValue;
+				value = parse();
+				currentArray->items.push_back(*value);
 				currentArray->size++;
 				++index;
+				delete value;
 			}
 		}
-
 		delete currentArray;
 	}
 
@@ -243,14 +233,14 @@ private:
 			if (values[index].value == "\"")
 			{
 				//end of string
-				cout << "Found End of String!\n";
 				++stringCount;
-				++index;
 				return currentStringArray;
 			}
 			else
 			{
 				//add this item to the string object
+				//we don't call parse() here because we do not care what is in the string
+				//if we called parse(), every "T" or "F" would be interpreted as true or false, which wouldn't be good.
 				currentStringArray->items.push_back(values[index]);
 				currentStringArray->size++;
 				++index;
@@ -259,14 +249,38 @@ private:
 
 		delete currentStringArray;
 	}
+
+	jsonNumber * parseNumber()
+	{
+		jsonNumber * currentNumberArray = new jsonNumber();
+
+		while (index < size) //parseString until we find the end of the string
+		{
+			if (values[index].value == "" || values[index].value == ",")
+			{
+				//end of number
+				++numCount;
+				return currentNumberArray;
+			}
+			else
+			{
+				currentNumberArray->items.push_back(values[index]);
+				currentNumberArray->size++;
+				++index;
+			}
+		}
+
+		delete currentNumberArray;
+	}
 };
 
 
-void readFile(jsonDoc * Document)
+void readFile(jsonDoc * Document, string inputString)
 {
 	ifstream inputFile;
-	string inputString = "JSONExample.txt";
 	inputFile.open(inputString);
+	if (!inputFile.is_open())
+		cout << "Could not open file\n";
 	char tempChar;
 	while (inputFile >> noskipws >> tempChar)
 	{
@@ -278,11 +292,16 @@ void readFile(jsonDoc * Document)
 	}
 	cout << "\n\n\n";
 }
-int main()
+
+int main(int argc, char *argv[])
 {
+	//read in the file location from the command line
+	//arg1 = JSON Document
+	string inputString(argv[1]);
+
 	//Read in and create a JSON document structure
 	jsonDoc * Document = new jsonDoc;
-	readFile(Document);
+	readFile(Document, inputString);
 
 	//Parse the Document
 	Document->parse();
@@ -290,9 +309,11 @@ int main()
 	//Print basic information about the document after parsing
 	cout << "\n\n\n" << Document->objectCount << " Objects\n"
 		<< Document->arrayCount << " Arrays\n"
-		<< Document->stringCount << " Strings\n";
-
-	cin.get(); //just for testing
+		<< Document->stringCount << " Strings\n"
+		<< Document->keyValueCount << " Key/Values\n"
+		<< Document->trueCount << " \"True\" Values\n"
+		<< Document->falseCount << " \"False\" Values\n"
+		<< Document->numCount << " Numbers\n";
 
 	return 0;
 }
