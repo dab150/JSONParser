@@ -313,7 +313,10 @@ int main(int argc, char *argv[])
 		<< Document->keyValueCount << " Key/Values\n"
 		<< Document->trueCount << " \"True\" Values\n"
 		<< Document->falseCount << " \"False\" Values\n"
-		<< Document->numCount << " Numbers\n";
+		<< Document->numCount << " Numbers\n"
+		<< "----------------------------------\n"
+		<< Document->arrayCount + Document->stringCount + Document->keyValueCount
+		+ Document->trueCount + Document->falseCount + Document->numCount << " Total Values in the Document\n";
 
 	return 0;
 }
